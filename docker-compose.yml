@@ -1,0 +1,21 @@
+services:
+  claude-withings:
+    image: node:20-alpine
+    container_name: claude-withings
+    restart: unless-stopped
+    working_dir: /app
+    volumes:
+      - .:/app
+      - /app/node_modules
+    environment:
+      - WITHINGS_CLIENT_ID=${WITHINGS_CLIENT_ID}
+      - WITHINGS_CLIENT_SECRET=${WITHINGS_CLIENT_SECRET}
+      - WITHINGS_ACCESS_TOKEN=${WITHINGS_ACCESS_TOKEN}
+      - WITHINGS_REFRESH_TOKEN=${WITHINGS_REFRESH_TOKEN}
+      - WITHINGS_TOKEN_EXPIRES_AT=${WITHINGS_TOKEN_EXPIRES_AT:-0}
+      - PORT=${PORT:-8769}
+      - BRIAN_MEM_URL=${BRIAN_MEM_URL:-}
+      - BRIAN_MCP_CLIENT_ID=${BRIAN_MCP_CLIENT_ID:-}
+      - BRIAN_MCP_CLIENT_SECRET=${BRIAN_MCP_CLIENT_SECRET:-}
+    command: node src/serve.js
+    network_mode: host
