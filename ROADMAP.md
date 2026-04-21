@@ -19,7 +19,7 @@
 
 ## ✅ Completed
 - [x] 2026-04-19 — Scaffolded: MCP server (get_weight, get_sleep, get_activity, get_heart_rate), API client, auth module, unit tests
+- [x] `[Code]` 2026-04-21 — Migrate container to `ghcr.io/aldarondo/claude-withings` — added `Dockerfile`, `.dockerignore`, and `.github/workflows/docker-build-push.yml` (builds on push to `main`, tags `latest` + short SHA); updated `docker-compose.yml` to pull the GHCR image
 
 ## 🚫 Blocked
-- ❌ [docker-monitor:no-ghcr-image] Container `claude-withings` uses `node:20-alpine` — migrate to `ghcr.io/aldarondo/...` with a GitHub Actions build-push workflow — 2026-04-20 17:08 UTC
 <!-- log blockers here -->
