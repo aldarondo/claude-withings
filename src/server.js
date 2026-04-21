@@ -17,6 +17,14 @@ import {
   formatTrendSummary,
 } from './api.js';
 import { storeMemory } from './memory.js';
+import { DEFAULT_USER } from './auth.js';
+
+const USER_PROP = {
+  user: {
+    type: 'string',
+    description: `Withings account user name (default: "${DEFAULT_USER}"). Other family members must first run: node src/authorize.js --user <name>`,
+  },
+};
 
 function dateToYmd(dateStr) {
   return parseInt(dateStr.replace(/-/g, ''), 10);
@@ -37,6 +45,7 @@ export function createServer() {
           type: 'object',
           properties: {
             since_days: { type: 'number', description: 'Only return measurements from the last N days (default: 7)' },
+            ...USER_PROP,
           },
           required: [],
         },
@@ -49,6 +58,7 @@ export function createServer() {
           properties: {
             startdate: { type: 'string', description: 'Start date in YYYY-MM-DD format' },
             enddate:   { type: 'string', description: 'End date in YYYY-MM-DD format' },
+            ...USER_PROP,
           },
           required: ['startdate', 'enddate'],
         },
@@ -61,6 +71,7 @@ export function createServer() {
           properties: {
             startdate: { type: 'string', description: 'Start date in YYYY-MM-DD format' },
             enddate:   { type: 'string', description: 'End date in YYYY-MM-DD format' },
+            ...USER_PROP,
           },
           required: ['startdate', 'enddate'],
         },
@@ -72,6 +83,7 @@ export function createServer() {
           type: 'object',
           properties: {
             since_days: { type: 'number', description: 'Only return readings from the last N days (default: 7)' },
+            ...USER_PROP,
           },
           required: [],
         },
@@ -79,21 +91,26 @@ export function createServer() {
       {
         name: 'trend_summary',
         description: 'Compare this week vs last week: weight change, avg steps/day, avg active calories/day.',
-        inputSchema: { type: 'object', properties: {}, required: [] },
+        inputSchema: {
+          type: 'object',
+          properties: { ...USER_PROP },
+          required: [],
+        },
       },
     ],
   }));
 
   server.setRequestHandler(CallToolRequestSchema, async (request) => {
     const { name, arguments: args } = request.params;
+    const user = args?.user || DEFAULT_USER;
     try {
       switch (name) {
         case 'get_weight': {
           const sinceDays = args?.since_days ?? 7;
           const lastupdate = Math.floor((Date.now() - sinceDays * 86400_000) / 1000);
-          const body = await getMeasurements({ lastupdate });
+          const body = await getMeasurements({ lastupdate }, user);
           const text = formatMeasurements(body);
-          storeMemory(`Withings measurements (last ${sinceDays}d): ${text}`, 'weight').catch(() => {});
+          storeMemory(`Withings measurements (${user}, last ${sinceDays}d): ${text}`, 'weight').catch(() => {});
           return { content: [{ type: 'text', text }] };
         }
 
@@ -101,7 +118,7 @@ export function createServer() {
           const body = await getSleepSummary({
             startdateymd: dateToYmd(args.startdate),
             enddateymd:   dateToYmd(args.enddate),
-          });
+          }, user);
           return { content: [{ type: 'text', text: JSON.stringify(body, null, 2) }] };
         }
 
@@ -109,14 +126,14 @@ export function createServer() {
           const body = await getActivitySummary({
             startdateymd: dateToYmd(args.startdate),
             enddateymd:   dateToYmd(args.enddate),
-          });
+          }, user);
           return { content: [{ type: 'text', text: JSON.stringify(body, null, 2) }] };
         }
 
         case 'get_heart_rate': {
           const sinceDays = args?.since_days ?? 7;
           const startdate = Math.floor((Date.now() - sinceDays * 86400_000) / 1000);
-          const body = await getHeartData({ startdate });
+          const body = await getHeartData({ startdate }, user);
           return { content: [{ type: 'text', text: JSON.stringify(body, null, 2) }] };
         }
 
@@ -126,10 +143,10 @@ export function createServer() {
           const twoWeeks = 14 * 86400;
           const ymd = (ts) => parseInt(new Date(ts * 1000).toISOString().slice(0, 10).replace(/-/g, ''), 10);
           const [thisWeekMeas, lastWeekMeas, thisActivity, lastActivity] = await Promise.all([
-            getMeasurements({ lastupdate: now - oneWeek }),
-            getMeasurements({ lastupdate: now - twoWeeks }),
-            getActivitySummary({ startdateymd: ymd(now - oneWeek),  enddateymd: ymd(now) }),
-            getActivitySummary({ startdateymd: ymd(now - twoWeeks), enddateymd: ymd(now - oneWeek) }),
+            getMeasurements({ lastupdate: now - oneWeek }, user),
+            getMeasurements({ lastupdate: now - twoWeeks }, user),
+            getActivitySummary({ startdateymd: ymd(now - oneWeek),  enddateymd: ymd(now) }, user),
+            getActivitySummary({ startdateymd: ymd(now - twoWeeks), enddateymd: ymd(now - oneWeek) }, user),
           ]);
           const text = formatTrendSummary(thisWeekMeas, lastWeekMeas, thisActivity, lastActivity);
           return { content: [{ type: 'text', text }] };

@@ -8,8 +8,8 @@ import { getAccessToken } from './auth.js';
 
 const BASE = 'https://wbsapi.withings.net';
 
-async function get(path, params = {}) {
-  const token = await getAccessToken();
+async function get(path, params = {}, user) {
+  const token = await getAccessToken(user);
   const { data } = await axios.get(`${BASE}${path}`, {
     params,
     headers: { Authorization: `Bearer ${token}` },
@@ -42,10 +42,10 @@ export const MEAS_TYPE = {
  * @param {number[]} [opts.meastype] - array of MEAS_TYPE values (default: all weight/composition)
  * @returns {Promise<Object>}
  */
-export async function getMeasurements({ lastupdate, meastype } = {}) {
+export async function getMeasurements({ lastupdate, meastype } = {}, user) {
   const params = { action: 'getmeas', meastypes: meastype?.join(',') };
   if (lastupdate) params.lastupdate = lastupdate;
-  return get('/measure', params);
+  return get('/measure', params, user);
 }
 
 /**
@@ -55,14 +55,14 @@ export async function getMeasurements({ lastupdate, meastype } = {}) {
  * @param {number} opts.enddateymd   - end date as YYYYMMDD integer
  * @returns {Promise<Object>}
  */
-export async function getSleepSummary({ startdateymd, enddateymd }) {
+export async function getSleepSummary({ startdateymd, enddateymd } = {}, user) {
   if (!startdateymd || !enddateymd) throw new Error('startdateymd and enddateymd are required');
   return get('/v2/sleep', {
     action: 'getsummary',
     startdateymd,
     enddateymd,
     data_fields: 'nb_rem_episodes,sleep_score,total_sleep_time,total_timeinbed,wakeup_count,deep_sleep_duration,light_sleep_duration,rem_sleep_duration',
-  });
+  }, user);
 }
 
 /**
@@ -72,14 +72,14 @@ export async function getSleepSummary({ startdateymd, enddateymd }) {
  * @param {number} opts.enddateymd
  * @returns {Promise<Object>}
  */
-export async function getActivitySummary({ startdateymd, enddateymd }) {
+export async function getActivitySummary({ startdateymd, enddateymd } = {}, user) {
   if (!startdateymd || !enddateymd) throw new Error('startdateymd and enddateymd are required');
   return get('/v2/measure', {
     action: 'getactivity',
     startdateymd,
     enddateymd,
     data_fields: 'steps,distance,elevation,calories,active_calories,hr_average,hr_min,hr_max',
-  });
+  }, user);
 }
 
 /**
@@ -89,11 +89,11 @@ export async function getActivitySummary({ startdateymd, enddateymd }) {
  * @param {number} [opts.enddate]   - unix timestamp
  * @returns {Promise<Object>}
  */
-export async function getHeartData({ startdate, enddate } = {}) {
+export async function getHeartData({ startdate, enddate } = {}, user) {
   const params = { action: 'list' };
   if (startdate) params.startdate = startdate;
   if (enddate) params.enddate = enddate;
-  return get('/v2/heart', params);
+  return get('/v2/heart', params, user);
 }
 
 /**

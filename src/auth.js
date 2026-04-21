@@ -1,31 +1,33 @@
 /**
- * Withings OAuth2 token management.
- * Withings uses OAuth2 with refresh tokens.
- * Tokens are stored in env vars and refreshed automatically when expired.
+ * Withings OAuth2 token management — per-user.
+ * Tokens are stored in tokens.json keyed by user name.
  *
  * Docs: https://developer.withings.com/api-reference/#tag/oauth2
  */
 
 import axios from 'axios';
+import { getTokens, setTokens } from './tokenStore.js';
 
 const TOKEN_URL = 'https://wbsapi.withings.net/v2/oauth2';
 
-export async function getAccessToken() {
-  const expiresAt = parseInt(process.env.WITHINGS_TOKEN_EXPIRES_AT || '0', 10);
-  // Refresh if within 5 minutes of expiry
-  if (Date.now() < expiresAt - 300_000) {
-    return process.env.WITHINGS_ACCESS_TOKEN;
+export const DEFAULT_USER = process.env.WITHINGS_DEFAULT_USER || 'charles';
+
+export async function getAccessToken(user = DEFAULT_USER) {
+  const tokens = getTokens(user);
+  if (!tokens) throw new Error(`No Withings tokens for user "${user}". Run: node src/authorize.js --user ${user}`);
+
+  if (Date.now() < tokens.expires_at - 300_000) {
+    return tokens.access_token;
   }
-  return refreshAccessToken();
+  return refreshAccessToken(user, tokens.refresh_token);
 }
 
-export async function refreshAccessToken() {
+export async function refreshAccessToken(user, refreshToken) {
   const clientId     = process.env.WITHINGS_CLIENT_ID;
   const clientSecret = process.env.WITHINGS_CLIENT_SECRET;
-  const refreshToken = process.env.WITHINGS_REFRESH_TOKEN;
 
-  if (!clientId || !clientSecret || !refreshToken) {
-    throw new Error('WITHINGS_CLIENT_ID, WITHINGS_CLIENT_SECRET, and WITHINGS_REFRESH_TOKEN must be set');
+  if (!clientId || !clientSecret) {
+    throw new Error('WITHINGS_CLIENT_ID and WITHINGS_CLIENT_SECRET must be set');
   }
 
   const params = new URLSearchParams({
@@ -41,13 +43,10 @@ export async function refreshAccessToken() {
   });
 
   if (data.status !== 0) {
-    throw new Error(`Withings token refresh failed: status ${data.status} — ${data.error || 'unknown'}`);
+    throw new Error(`Withings token refresh failed for "${user}": status ${data.status} — ${data.error || 'unknown'}`);
   }
 
   const { access_token, refresh_token, expires_in } = data.body;
-  process.env.WITHINGS_ACCESS_TOKEN = access_token;
-  process.env.WITHINGS_REFRESH_TOKEN = refresh_token;
-  process.env.WITHINGS_TOKEN_EXPIRES_AT = String(Date.now() + expires_in * 1000);
-
+  setTokens(user, { access_token, refresh_token, expires_at: Date.now() + expires_in * 1000 });
   return access_token;
 }

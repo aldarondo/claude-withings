@@ -4,6 +4,7 @@ import { describe, test, expect, jest, beforeEach } from '@jest/globals';
 jest.unstable_mockModule('../../src/auth.js', async () => ({
   getAccessToken: jest.fn().mockResolvedValue('mock-token'),
   refreshAccessToken: jest.fn().mockResolvedValue('mock-token'),
+  DEFAULT_USER: 'charles',
 }));
 
 const mockGet  = jest.fn();
