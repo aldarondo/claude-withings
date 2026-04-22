@@ -17,7 +17,7 @@ jest.unstable_mockModule('axios', async () => ({
   },
 }));
 
-const { getMeasurements, getSleepSummary, getActivitySummary, formatMeasurements, MEAS_TYPE } =
+const { getMeasurements, getHeartData, formatMeasurements, formatTrendSummary, MEAS_TYPE } =
   await import('../../src/api.js');
 
 beforeEach(() => {
@@ -45,26 +45,18 @@ describe('getMeasurements', () => {
   });
 });
 
-describe('getSleepSummary', () => {
-  test('throws if startdateymd or enddateymd missing', async () => {
-    await expect(getSleepSummary({})).rejects.toThrow('required');
-  });
-
-  test('fetches sleep data with correct params', async () => {
+describe('getHeartData', () => {
+  test('fetches heart data with Bearer auth', async () => {
     mockGet.mockResolvedValue({ data: { status: 0, body: { series: [] } } });
 
-    await getSleepSummary({ startdateymd: 20260401, enddateymd: 20260407 });
+    await getHeartData({ startdate: 1000000 });
 
     expect(mockGet).toHaveBeenCalledWith(
-      'https://wbsapi.withings.net/v2/sleep',
-      expect.objectContaining({ params: expect.objectContaining({ startdateymd: 20260401 }) })
+      'https://wbsapi.withings.net/v2/heart',
+      expect.objectContaining({
+        headers: { Authorization: 'Bearer mock-token' },
+      })
     );
-  });
-});
-
-describe('getActivitySummary', () => {
-  test('throws if dates missing', async () => {
-    await expect(getActivitySummary({})).rejects.toThrow('required');
   });
 });
 
@@ -102,5 +94,25 @@ describe('formatMeasurements', () => {
     const result = formatMeasurements(body);
     expect(result).not.toContain('Fat ratio');
     expect(result).not.toContain('Muscle');
+  });
+});
+
+describe('formatTrendSummary', () => {
+  const makeBody = (weightKg) => ({
+    measuregrps: [{
+      date: 1745001600,
+      measures: [{ type: MEAS_TYPE.WEIGHT, value: Math.round(weightKg * 100), unit: -2 }],
+    }],
+  });
+
+  test('shows weight delta between weeks', () => {
+    const result = formatTrendSummary(makeBody(79.5), makeBody(80.0));
+    expect(result).toContain('79.50 kg');
+    expect(result).toContain('-0.50');
+  });
+
+  test('handles missing data gracefully', () => {
+    const result = formatTrendSummary({}, {});
+    expect(result).toContain('N/A');
   });
 });

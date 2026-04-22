@@ -1,19 +1,46 @@
 /**
  * claude-withings MCP Server — HTTP/SSE entry point.
  * Listens on PORT (default 8769) for SSE connections from brian-telegram.
- * Also serves a web UI at / for authorizing family members.
+ * Also serves:
+ *   /          — family member authorization UI
+ *   /webhook   — Withings push notification receiver
  */
 
 import express from 'express';
 import axios from 'axios';
 import { SSEServerTransport } from '@modelcontextprotocol/sdk/server/sse.js';
 import { createServer } from './server.js';
-import { setTokens, listUsers } from './tokenStore.js';
+import { setTokens, listUsers, getUserByWithingsId } from './tokenStore.js';
+import { getMeasurements, getHeartData, formatMeasurements } from './api.js';
+import { storeMemory } from './memory.js';
 
-const PORT        = parseInt(process.env.PORT || '8769', 10);
-const CLIENT_ID   = process.env.WITHINGS_CLIENT_ID;
+const PORT          = parseInt(process.env.PORT || '8769', 10);
+const CLIENT_ID     = process.env.WITHINGS_CLIENT_ID;
 const CLIENT_SECRET = process.env.WITHINGS_CLIENT_SECRET;
-const REDIRECT_URI = `http://localhost:${PORT}/auth/callback`;
+const HOST          = process.env.SERVER_HOST || 'localhost';
+const REDIRECT_URI  = `http://${HOST}:${PORT}/auth/callback`;
+
+// Webhook security
+const WEBHOOK_SECRET = process.env.WEBHOOK_SECRET || '';
+// Comma-separated list of allowed Withings source IPs (from CF-Connecting-IP behind Cloudflare Tunnel).
+// Leave blank to skip IP check — add IPs once obtained from Withings support.
+const WEBHOOK_ALLOWED_IPS = (process.env.WITHINGS_WEBHOOK_IPS || '')
+  .split(',').map(s => s.trim()).filter(Boolean);
+
+// Simple in-memory rate limiter: max 60 requests per IP per minute
+const webhookRateMap = new Map();
+function isRateLimited(ip) {
+  const now = Date.now();
+  const entry = webhookRateMap.get(ip) || { count: 0, resetAt: now + 60_000 };
+  if (now > entry.resetAt) { entry.count = 0; entry.resetAt = now + 60_000; }
+  entry.count++;
+  webhookRateMap.set(ip, entry);
+  return entry.count > 60;
+}
+
+// Withings appli values we handle
+const APPLI_WEIGHT     = 1;
+const APPLI_HEART_RATE = 4;
 
 const app = express();
 const transports = new Map();
@@ -32,6 +59,61 @@ app.post('/messages', express.json(), async (req, res) => {
   const transport = transports.get(req.query.sessionId);
   if (!transport) return res.status(404).json({ error: 'Session not found' });
   await transport.handlePostMessage(req, res);
+});
+
+// ── Withings webhook ──────────────────────────────────────────────────────────
+
+app.post('/webhook', express.urlencoded({ extended: false }), async (req, res) => {
+  // 1. Secret token check (token embedded in callback URL at subscribe time)
+  if (WEBHOOK_SECRET && req.query.token !== WEBHOOK_SECRET) {
+    console.error('[webhook] rejected: invalid token');
+    return res.status(401).end();
+  }
+
+  // 2. IP allowlist check (real client IP from CF-Connecting-IP behind Cloudflare Tunnel)
+  const clientIp = req.headers['cf-connecting-ip'] || req.ip;
+  if (WEBHOOK_ALLOWED_IPS.length > 0 && !WEBHOOK_ALLOWED_IPS.includes(clientIp)) {
+    console.error(`[webhook] rejected: IP not allowed — ${clientIp}`);
+    return res.status(403).end();
+  }
+
+  // 3. Rate limit
+  if (isRateLimited(clientIp)) {
+    console.error(`[webhook] rate limited: ${clientIp}`);
+    return res.status(429).end();
+  }
+
+  // Respond 200 immediately — Withings retries on timeout
+  res.status(200).end();
+
+  const { userid, appli, startdate, enddate } = req.body;
+  const user = getUserByWithingsId(userid);
+
+  if (!user) {
+    console.error(`[webhook] no local user found for Withings ID ${userid}`);
+    return;
+  }
+
+  console.error(`[webhook] appli=${appli} userid=${userid} (${user}) start=${startdate} end=${enddate}`);
+
+  try {
+    const appliNum = parseInt(appli, 10);
+
+    if (appliNum === APPLI_WEIGHT) {
+      const body = await getMeasurements({ lastupdate: parseInt(startdate, 10) }, user);
+      const text = formatMeasurements(body);
+      await storeMemory(`Withings weight (${user}): ${text}`, 'weight');
+      console.error(`[webhook] stored weight for ${user}`);
+    } else if (appliNum === APPLI_HEART_RATE) {
+      const body = await getHeartData({ startdate: parseInt(startdate, 10), enddate: parseInt(enddate, 10) }, user);
+      await storeMemory(`Withings heart rate (${user}): ${JSON.stringify(body)}`, 'heart_rate');
+      console.error(`[webhook] stored heart rate for ${user}`);
+    } else {
+      console.error(`[webhook] unhandled appli=${appli}, ignoring`);
+    }
+  } catch (err) {
+    console.error(`[webhook] error processing notification: ${err.message}`);
+  }
 });
 
 // ── Auth web UI ───────────────────────────────────────────────────────────────
@@ -108,8 +190,8 @@ app.get('/auth/callback', async (req, res) => {
       return res.send(`<p>Token exchange failed (status ${data.status}). <a href="/">Try again</a></p>`);
     }
 
-    const { access_token, refresh_token, expires_in } = data.body;
-    setTokens(user, { access_token, refresh_token, expires_at: Date.now() + expires_in * 1000 });
+    const { access_token, refresh_token, expires_in, userid } = data.body;
+    setTokens(user, { access_token, refresh_token, expires_at: Date.now() + expires_in * 1000, withings_user_id: userid });
 
     res.send(`<!DOCTYPE html>
 <html lang="en">

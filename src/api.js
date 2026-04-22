@@ -1,6 +1,9 @@
 /**
  * Withings REST API client.
  * Docs: https://developer.withings.com/api-reference/
+ *
+ * Supported devices: Withings scale (body composition) and blood pressure monitor.
+ * Sleep and activity tracking are not available on these devices.
  */
 
 import axios from 'axios';
@@ -49,41 +52,7 @@ export async function getMeasurements({ lastupdate, meastype } = {}, user) {
 }
 
 /**
- * Get sleep summary data.
- * @param {Object} opts
- * @param {number} opts.startdateymd - start date as YYYYMMDD integer
- * @param {number} opts.enddateymd   - end date as YYYYMMDD integer
- * @returns {Promise<Object>}
- */
-export async function getSleepSummary({ startdateymd, enddateymd } = {}, user) {
-  if (!startdateymd || !enddateymd) throw new Error('startdateymd and enddateymd are required');
-  return get('/v2/sleep', {
-    action: 'getsummary',
-    startdateymd,
-    enddateymd,
-    data_fields: 'nb_rem_episodes,sleep_score,total_sleep_time,total_timeinbed,wakeup_count,deep_sleep_duration,light_sleep_duration,rem_sleep_duration',
-  }, user);
-}
-
-/**
- * Get activity summary data.
- * @param {Object} opts
- * @param {number} opts.startdateymd
- * @param {number} opts.enddateymd
- * @returns {Promise<Object>}
- */
-export async function getActivitySummary({ startdateymd, enddateymd } = {}, user) {
-  if (!startdateymd || !enddateymd) throw new Error('startdateymd and enddateymd are required');
-  return get('/v2/measure', {
-    action: 'getactivity',
-    startdateymd,
-    enddateymd,
-    data_fields: 'steps,distance,elevation,calories,active_calories,hr_average,hr_min,hr_max',
-  }, user);
-}
-
-/**
- * Get heart rate measurements.
+ * Get heart rate measurements from blood pressure monitor.
  * @param {Object} opts
  * @param {number} [opts.startdate] - unix timestamp
  * @param {number} [opts.enddate]   - unix timestamp
@@ -94,57 +63,6 @@ export async function getHeartData({ startdate, enddate } = {}, user) {
   if (startdate) params.startdate = startdate;
   if (enddate) params.enddate = enddate;
   return get('/v2/heart', params, user);
-}
-
-/**
- * Compare current week vs last week for weight and activity.
- * @param {Object} thisWeekMeas - getMeasurements() result for this week
- * @param {Object} lastWeekMeas - getMeasurements() result for last week
- * @param {Object} thisActivity - getActivitySummary() result for this week
- * @param {Object} lastActivity - getActivitySummary() result for last week
- */
-export function formatTrendSummary(thisWeekMeas, lastWeekMeas, thisActivity, lastActivity) {
-  const extractWeight = (body) => {
-    if (!body?.measuregrps?.length) return null;
-    const grp = body.measuregrps[0];
-    for (const m of grp.measures) {
-      if (m.type === MEAS_TYPE.WEIGHT) return m.value * Math.pow(10, m.unit);
-    }
-    return null;
-  };
-
-  const avgActivity = (body, field) => {
-    const days = body?.activities ?? [];
-    if (!days.length) return null;
-    const vals = days.map(d => d[field]).filter(v => v != null && !isNaN(v));
-    return vals.length ? (vals.reduce((a, b) => a + b, 0) / vals.length) : null;
-  };
-
-  const thisWeight = extractWeight(thisWeekMeas);
-  const lastWeight = extractWeight(lastWeekMeas);
-  const thisSteps  = avgActivity(thisActivity, 'steps');
-  const lastSteps  = avgActivity(lastActivity, 'steps');
-  const thisCals   = avgActivity(thisActivity, 'active_calories');
-  const lastCals   = avgActivity(lastActivity, 'active_calories');
-
-  const delta = (curr, prev, unit = '', precision = 1) => {
-    if (curr == null) return 'N/A';
-    const formatted = curr.toFixed(precision);
-    if (prev == null) return `${formatted}${unit}`;
-    const diff = curr - prev;
-    const sign = diff > 0 ? '+' : '';
-    return `${formatted}${unit} (${sign}${diff.toFixed(precision)})`;
-  };
-
-  const lines = [
-    '📈 Withings Trend — This Week vs Last Week',
-    '',
-    `⚖️  Weight:       ${delta(thisWeight, lastWeight, ' kg', 2)}`,
-    `👟 Avg steps/day: ${delta(thisSteps, lastSteps, '', 0)}`,
-    `🔥 Avg active cal: ${delta(thisCals, lastCals, '', 0)}`,
-  ];
-
-  return lines.join('\n');
 }
 
 /**
@@ -176,4 +94,38 @@ export function formatMeasurements(body) {
   if (boneMass)   lines.push(`🦴  Bone mass:   ${boneMass.toFixed(2)} kg`);
   if (hydration)  lines.push(`💧  Hydration:   ${hydration.toFixed(2)} kg`);
   return lines.join('\n');
+}
+
+/**
+ * Compare this week vs last week for weight.
+ * @param {Object} thisWeekMeas - getMeasurements() result for this week
+ * @param {Object} lastWeekMeas - getMeasurements() result for last week
+ */
+export function formatTrendSummary(thisWeekMeas, lastWeekMeas) {
+  const extractWeight = (body) => {
+    if (!body?.measuregrps?.length) return null;
+    const grp = body.measuregrps[0];
+    for (const m of grp.measures) {
+      if (m.type === MEAS_TYPE.WEIGHT) return m.value * Math.pow(10, m.unit);
+    }
+    return null;
+  };
+
+  const thisWeight = extractWeight(thisWeekMeas);
+  const lastWeight = extractWeight(lastWeekMeas);
+
+  const delta = (curr, prev, unit = '', precision = 2) => {
+    if (curr == null) return 'N/A';
+    const formatted = curr.toFixed(precision);
+    if (prev == null) return `${formatted}${unit}`;
+    const diff = curr - prev;
+    const sign = diff > 0 ? '+' : '';
+    return `${formatted}${unit} (${sign}${diff.toFixed(precision)})`;
+  };
+
+  return [
+    '📈 Withings Trend — This Week vs Last Week',
+    '',
+    `⚖️  Weight: ${delta(thisWeight, lastWeight, ' kg')}`,
+  ].join('\n');
 }

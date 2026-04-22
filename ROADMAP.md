@@ -14,8 +14,8 @@
 - [x] `[Code]` 2026-04-19 — Add `claude-withings` to `config/mcp.json` in brian-telegram (port 8769, SSE)
 
 ### Build & Infrastructure
-- [ ] `[Code]` Add GHCR build-push workflow — migrate container from `node:20-alpine` to a versioned GHCR image (`ghcr.io/aldarondo/...`) with GitHub Actions auto-deploy
-- [ ] `[Code]` Add weekly scheduled rebuild — GitHub Actions `schedule: cron` to repull and push a fresh image every week, picking up base-image security patches
+- [x] `[Code]` 2026-04-21 — Add GHCR build-push workflow — Dockerfile + `.github/workflows/docker-publish.yml`; pushes `ghcr.io/aldarondo/claude-withings:latest` + SHA tag on every push to main
+- [x] `[Code]` 2026-04-21 — Add weekly scheduled rebuild — `.github/workflows/docker-rebuild.yml`; no-cache build every Monday 4am UTC to pick up base-image security patches
 
 ### Enhancements
 - [x] `[Code]` 2026-04-19 — Store latest measurements in brian-mem on each `get_weight` call
@@ -23,7 +23,11 @@
 
 ## ✅ Completed
 - [x] 2026-04-19 — Scaffolded: MCP server (get_weight, get_sleep, get_activity, get_heart_rate), API client, auth module, unit tests
-- [x] 2026-04-21 — Multi-user token store: tokens.json keyed by user name; all tools accept optional `user` param; authorize.js takes `--user <name>` flag
+- [x] 2026-04-21 — Multi-user token store: tokens.json keyed by user name; all tools accept optional `user` param; browser auth UI at `http://<nas-ip>:<PORT>/`
+- [x] 2026-04-21 — Removed get_sleep and get_activity (not supported by scale or blood pressure monitor); added brian-mem storage to get_heart_rate; simplified trend_summary to weight-only
+- [x] 2026-04-21 — Withings webhook receiver: /webhook endpoint with secret token + IP allowlist + rate limiting; src/subscribe.js to register/revoke; withings_user_id stored in tokens.json for user mapping
+- [x] 2026-04-21 — CI/CD pipeline: GitHub Actions builds GHCR image and auto-deploys to NAS via Cloudflare SSH tunnel on every push to main; Cloudflare Tunnel service added to docker-compose for public webhook exposure
+- [x] 2026-04-21 — GHCR image pipeline: Dockerfile, build-push on push to main, weekly no-cache rebuild for security patches
 
 ## 🚫 Blocked
 <!-- log blockers here -->

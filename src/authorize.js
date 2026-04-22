@@ -79,11 +79,11 @@ const server = http.createServer(async (req, res) => {
       process.exit(1);
     }
 
-    const { access_token, refresh_token, expires_in } = data.body;
+    const { access_token, refresh_token, expires_in, userid } = data.body;
     const expires_at = Date.now() + expires_in * 1000;
 
-    setTokens(USER, { access_token, refresh_token, expires_at });
-    console.log(`✅ Tokens saved to tokens.json for user "${USER}"`);
+    setTokens(USER, { access_token, refresh_token, expires_at, withings_user_id: userid });
+    console.log(`✅ Tokens saved to tokens.json for user "${USER}" (Withings ID: ${userid})`);
     console.log(`   Access token expires: ${new Date(expires_at).toISOString()}`);
   } catch (err) {
     console.error('Failed to exchange code:', err.message);

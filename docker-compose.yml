@@ -1,19 +1,32 @@
 services:
   claude-withings:
-    image: node:20-alpine
+    image: ghcr.io/aldarondo/claude-withings:latest
     container_name: claude-withings
     restart: unless-stopped
-    working_dir: /app
     volumes:
-      - .:/app
-      - /app/node_modules
+      - ./.env:/app/.env:ro
+      - ./tokens.json:/app/tokens.json
     environment:
       - WITHINGS_CLIENT_ID=${WITHINGS_CLIENT_ID}
       - WITHINGS_CLIENT_SECRET=${WITHINGS_CLIENT_SECRET}
       - WITHINGS_DEFAULT_USER=${WITHINGS_DEFAULT_USER:-charles}
+      - SERVER_HOST=${SERVER_HOST}
       - PORT=${PORT:-8769}
+      - WEBHOOK_SECRET=${WEBHOOK_SECRET:-}
+      - WITHINGS_WEBHOOK_IPS=${WITHINGS_WEBHOOK_IPS:-}
       - BRIAN_MEM_URL=${BRIAN_MEM_URL:-}
       - BRIAN_MCP_CLIENT_ID=${BRIAN_MCP_CLIENT_ID:-}
       - BRIAN_MCP_CLIENT_SECRET=${BRIAN_MCP_CLIENT_SECRET:-}
-    command: node src/serve.js
     network_mode: host
+
+  cloudflared:
+    image: cloudflare/cloudflared:latest
+    container_name: claude-withings-tunnel
+    restart: unless-stopped
+    command: tunnel --no-autoupdate run
+    environment:
+      TUNNEL_TOKEN: ${WEBHOOK_TUNNEL_TOKEN:-}
+    depends_on:
+      - claude-withings
+    profiles:
+      - tunnel
