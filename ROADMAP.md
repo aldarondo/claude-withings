@@ -30,7 +30,6 @@
 - [x] 2026-04-21 — GHCR image pipeline: Dockerfile, build-push on push to main, weekly no-cache rebuild for security patches
 
 ## 🚫 Blocked
-- ❌ [docker-monitor:container-stopped] Container `claude-withings` is not running on the NAS — check `docker logs claude-withings` and restart — 2026-04-23 05:08 UTC
 
 - ❌ [docker-monitor:no-ghcr-image] Container `claude-withings` uses `node:20-alpine` — migrate to `ghcr.io/aldarondo/...` with a GitHub Actions build-push workflow — 2026-04-22 08:00 UTC
 <!-- log blockers here -->
