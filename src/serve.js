@@ -103,9 +103,23 @@ async function handleWebhook(req, res) {
       const monthStart = Math.floor(new Date(now.getFullYear(), now.getMonth(), 1).getTime() / 1000);
       const monthEnd   = Math.floor(now.getTime() / 1000);
 
+      const fetchHeart = async () => {
+        await new Promise((r) => setTimeout(r, 60_000));
+        try {
+          return await getHeartData({ startdate: monthStart, enddate: monthEnd }, user);
+        } catch (err) {
+          if (err.message?.includes('601')) {
+            console.error(`[webhook] heart rate 601, retrying in 60s`);
+            await new Promise((r) => setTimeout(r, 60_000));
+            return await getHeartData({ startdate: monthStart, enddate: monthEnd }, user);
+          }
+          throw err;
+        }
+      };
+
       const [grps, heartBody] = await Promise.all([
         fetchAllMeasurements(monthStart, user),
-        getHeartData({ startdate: monthStart, enddate: monthEnd }, user).catch((err) => {
+        fetchHeart().catch((err) => {
           console.error(`[webhook] heart data fetch failed: ${err.message}`);
           return { series: [] };
         }),
