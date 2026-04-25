@@ -10,6 +10,10 @@
 
 ## ✅ Completed
 
+- [x] 2026-04-25 — Full historical backfill complete: 78 months stored in brian-mem (Aug 2019 – Apr 2026) with unique per-month content prefix to prevent false-conflict embeddings at scale
+- [x] 2026-04-25 — Heart rate data (BPM Connect type 11) included in all monthly summaries; webhook handler filters measurements to current month to prevent cross-month bleed
+- [x] 2026-04-25 — `withings_user_id` now captured from every token refresh response; serve.js heals missing IDs at startup so webhook routing is always functional
+- [x] 2026-04-25 — CI deploy race condition fixed: label-based container cleanup (`com.docker.compose.project=claude-withings`) replaces name-based approach, handles hash-prefixed container names
 - [x] 2026-04-25 — Monthly summaries stored as structured JSON (not text); webhook handler now uses paginated `fetchAllMeasurements` for complete readings
 - [x] 2026-04-25 — Webhook fully operational: charles subscribed for weight + heart rate; Cloudflare Tunnel ingress added for `withings.aldarondo.family`; serve.js handles `POST /` (Withings requires bare-domain callback, no path); subscribe.js uses `WEBHOOK_CALLBACK_URL`
 - [x] 2026-04-25 — `backfill_to_memory` tool: fetches historical Withings data and stores monthly summaries in brian-mem; monthly-hashes.json tracks hash per user/month to enable upserts

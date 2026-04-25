@@ -5,7 +5,7 @@ MCP server that pulls weight, body composition, and heart rate data from the Wit
 ## Supported devices
 
 - **Withings scale** — body composition (weight, fat %, muscle mass, bone mass, hydration)
-- **Withings blood pressure monitor** — heart rate readings
+- **Withings BPM Connect** — heart rate readings (stored as measurement type 11 in the Withings `/measure` API)
 
 > Sleep and activity tracking are not available on these devices and are not supported.
 
@@ -107,9 +107,11 @@ Enter your name and click **Authorize**. You'll be redirected to Withings to log
 | Tool | Description | Writes to brian-mem |
 |------|-------------|---------------------|
 | `get_weight` | Latest weight and body composition from scale | ✅ (if configured) |
-| `get_heart_rate` | Heart rate readings from blood pressure monitor | ✅ (if configured) |
+| `get_heart_rate` | Heart rate readings from BPM Connect | ✅ (if configured) |
 | `trend_summary` | Weight this week vs last week | — |
 | `backfill_to_memory` | Fetch historical data and store monthly summaries in brian-mem | ✅ (if configured) |
+
+Monthly summaries include aggregated stats (avg/min/max/count) plus individual daily readings for body metrics and timestamped BPM readings. Each summary is prefixed with a unique header (`Withings health summary — {user} {month}`) so distinct months produce distinct embeddings in the memory store.
 
 All tools accept an optional `user` parameter (e.g. `{ "user": "laura" }`). Defaults to `WITHINGS_DEFAULT_USER` if omitted.
 
@@ -212,7 +214,7 @@ echo '{}' > monthly-hashes.json
 
 ## CI/CD (example: Synology NAS via GitHub Actions)
 
-The included `.github/workflows/docker-publish.yml` builds the Docker image, pushes it to GHCR, and SSHes into a NAS to redeploy on every push to `main`. It assumes:
+The included `.github/workflows/build.yml` builds the Docker image, pushes it to GHCR, and SSHes into a NAS to redeploy on every push to `main`. It assumes:
 
 - A NAS reachable via SSH through a Cloudflare Tunnel
 - The container running at `/volume1/docker/claude-withings/`
@@ -225,7 +227,7 @@ Required GitHub Actions secrets for this workflow:
 | `CF_ACCESS_CLIENT_ID` | Cloudflare Access service token client ID |
 | `CF_ACCESS_CLIENT_SECRET` | Cloudflare Access service token client secret |
 
-A weekly no-cache rebuild also runs every Monday at 4am UTC to pick up base-image security patches.
+A weekly rebuild also runs every Sunday at 8am UTC to pick up base-image security patches.
 
 You can adapt the workflow for any SSH-accessible host by updating the connection details.
 
@@ -248,8 +250,7 @@ src/
   authorize.js    — CLI OAuth2 flow alternative to browser UI (--user <name>)
 .github/
   workflows/
-    docker-publish.yml  — build + push to GHCR + deploy to NAS on push to main
-    docker-rebuild.yml  — weekly no-cache rebuild for base-image security patches
+    build.yml           — build + push to GHCR + deploy to NAS on push to main; weekly Sunday rebuild
 Dockerfile
 tokens.json             — per-user OAuth tokens (gitignored)
 monthly-hashes.json     — brian-mem hash index per user/month (gitignored)
