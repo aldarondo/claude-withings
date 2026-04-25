@@ -7,6 +7,7 @@ on:
       - Dockerfile
       - src/**
       - package*.json
+      - docker-compose.yml
   schedule:
     - cron: "0 8 * * 0"
   workflow_dispatch:
@@ -50,9 +51,13 @@ jobs:
           CF_CLIENT_ID: ${{ secrets.CF_ACCESS_CLIENT_ID }}
           CF_CLIENT_SECRET: ${{ secrets.CF_ACCESS_CLIENT_SECRET }}
         run: |
+          sshpass -e scp -o StrictHostKeyChecking=no \
+            -o "ProxyCommand=cloudflared access ssh --hostname nas-ssh.aldarondo.family --id $CF_CLIENT_ID --secret $CF_CLIENT_SECRET" \
+            docker-compose.yml charles@nas-ssh.aldarondo.family:/tmp/claude-withings-compose.yml
           sshpass -e ssh -o StrictHostKeyChecking=no \
             -o "ProxyCommand=cloudflared access ssh --hostname nas-ssh.aldarondo.family --id $CF_CLIENT_ID --secret $CF_CLIENT_SECRET" \
             charles@nas-ssh.aldarondo.family \
-            "echo \"$NAS_PASS\" | sudo -S /usr/local/bin/docker compose -f /volume1/docker/claude-withings/docker-compose.yml --profile tunnel pull \
+            "echo \"$NAS_PASS\" | sudo -S cp /tmp/claude-withings-compose.yml /volume1/docker/claude-withings/docker-compose.yml \
+             && echo \"$NAS_PASS\" | sudo -S /usr/local/bin/docker compose -f /volume1/docker/claude-withings/docker-compose.yml --profile tunnel pull \
              && echo \"$NAS_PASS\" | sudo -S /usr/local/bin/docker rm -f claude-withings claude-withings-tunnel 2>/dev/null || true \
              && echo \"$NAS_PASS\" | sudo -S /usr/local/bin/docker compose -f /volume1/docker/claude-withings/docker-compose.yml --profile tunnel up -d"
