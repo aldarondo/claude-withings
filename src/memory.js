@@ -1,17 +1,17 @@
 /**
- * brian-mem integration — store and delete health memories.
+ * External memory store integration — store and delete health memories.
  * Fails silently so it never breaks the primary tool response.
  *
  * Required env vars (optional — silently skips if absent):
- *   BRIAN_MEM_URL             e.g. https://brian.aldarondo.family/mcp
- *   BRIAN_MCP_CLIENT_ID       CF Access client ID
- *   BRIAN_MCP_CLIENT_SECRET   CF Access client secret
+ *   MEM_URL             URL of any MCP memory server (e.g. https://mem.example.com/mcp)
+ *   MCP_CLIENT_ID       CF Access client ID (omit if no auth required)
+ *   MCP_CLIENT_SECRET   CF Access client secret (omit if no auth required)
  */
 
 function buildHeaders() {
   const headers = { 'Content-Type': 'application/json', Accept: 'application/json' };
-  if (process.env.BRIAN_MCP_CLIENT_ID)     headers['CF-Access-Client-Id']     = process.env.BRIAN_MCP_CLIENT_ID;
-  if (process.env.BRIAN_MCP_CLIENT_SECRET) headers['CF-Access-Client-Secret'] = process.env.BRIAN_MCP_CLIENT_SECRET;
+  if (process.env.MCP_CLIENT_ID)     headers['CF-Access-Client-Id']     = process.env.MCP_CLIENT_ID;
+  if (process.env.MCP_CLIENT_SECRET) headers['CF-Access-Client-Secret'] = process.env.MCP_CLIENT_SECRET;
   return headers;
 }
 
@@ -22,7 +22,7 @@ function buildHeaders() {
  * @returns {Promise<string|null>} content hash
  */
 export async function storeMemory(content, tags = '') {
-  const url = process.env.BRIAN_MEM_URL;
+  const url = process.env.MEM_URL;
   if (!url) return null;
 
   try {
@@ -58,7 +58,7 @@ export async function storeMemory(content, tags = '') {
  * @param {string} hash
  */
 export async function deleteMemory(hash) {
-  const url = process.env.BRIAN_MEM_URL;
+  const url = process.env.MEM_URL;
   if (!url || !hash) return;
 
   try {

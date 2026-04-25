@@ -70,7 +70,7 @@ export function createServer() {
       },
       {
         name: 'backfill_to_memory',
-        description: 'Fetch historical Withings data and store monthly summaries to brian-mcp memory. Each month becomes one memory entry with body composition and heart rate stats.',
+        description: 'Fetch historical Withings data and build monthly summaries (weight, body composition, heart rate stats). Stores to the configured memory server if set; otherwise returns a report.',
         inputSchema: {
           type: 'object',
           properties: {

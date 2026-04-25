@@ -15,9 +15,9 @@ services:
       - PORT=${PORT:-8769}
       - WEBHOOK_SECRET=${WEBHOOK_SECRET:-}
       - WITHINGS_WEBHOOK_IPS=${WITHINGS_WEBHOOK_IPS:-}
-      - BRIAN_MEM_URL=${BRIAN_MEM_URL:-}
-      - BRIAN_MCP_CLIENT_ID=${BRIAN_MCP_CLIENT_ID:-}
-      - BRIAN_MCP_CLIENT_SECRET=${BRIAN_MCP_CLIENT_SECRET:-}
+      - MEM_URL=${MEM_URL:-}
+      - MCP_CLIENT_ID=${MCP_CLIENT_ID:-}
+      - MCP_CLIENT_SECRET=${MCP_CLIENT_SECRET:-}
     network_mode: host
     logging:
       driver: "json-file"
