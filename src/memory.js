@@ -9,10 +9,17 @@
  */
 
 function buildHeaders() {
-  const headers = { 'Content-Type': 'application/json', Accept: 'application/json' };
+  // brian-mem requires both content types; responds in SSE format
+  const headers = { 'Content-Type': 'application/json', Accept: 'application/json, text/event-stream' };
   if (process.env.MCP_CLIENT_ID)     headers['CF-Access-Client-Id']     = process.env.MCP_CLIENT_ID;
   if (process.env.MCP_CLIENT_SECRET) headers['CF-Access-Client-Secret'] = process.env.MCP_CLIENT_SECRET;
   return headers;
+}
+
+// Parse MCP streamable-HTTP SSE response: extract JSON from the "data: {...}" line.
+function parseSseJson(raw) {
+  const line = raw.split('\n').find(l => l.startsWith('data: '));
+  return line ? JSON.parse(line.slice(6)) : {};
 }
 
 /**
@@ -43,7 +50,7 @@ export async function storeMemory(content, tags = '') {
         },
       }),
     });
-    const data = await res.json();
+    const data  = parseSseJson(await res.text());
     const text  = data?.result?.content?.[0]?.text ?? '';
     const match = text.match(/hash:\s*([a-f0-9]+)/i);
     return match?.[1] ?? null;
