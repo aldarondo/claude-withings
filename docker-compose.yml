@@ -19,6 +19,11 @@ services:
       - BRIAN_MCP_CLIENT_ID=${BRIAN_MCP_CLIENT_ID:-}
       - BRIAN_MCP_CLIENT_SECRET=${BRIAN_MCP_CLIENT_SECRET:-}
     network_mode: host
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "5"
 
   cloudflared:
     image: cloudflare/cloudflared:latest
@@ -31,3 +36,8 @@ services:
       - claude-withings
     profiles:
       - tunnel
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "5"
