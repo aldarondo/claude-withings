@@ -168,7 +168,10 @@ export async function storeMonthSummary(monthKey, user, summary, dryRun) {
   const oldHash = getMonthHash(user, monthKey);
   if (oldHash) await deleteMemory(oldHash);
 
-  const newHash = await storeMemory(summary, tags);
+  // Prefix with a unique header so monthly summaries get distinct embeddings
+  // and don't false-conflict with each other in the memory store.
+  const content = `Withings health summary — ${user} ${monthKey}\n${summary}`;
+  const newHash = await storeMemory(content, tags);
   if (newHash) setMonthHash(user, monthKey, newHash);
   return newHash;
 }
