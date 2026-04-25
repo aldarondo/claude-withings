@@ -10,6 +10,7 @@
 
 ## ✅ Completed
 
+- [x] 2026-04-25 — Monthly summaries stored as structured JSON (not text); webhook handler now uses paginated `fetchAllMeasurements` for complete readings
 - [x] 2026-04-25 — Webhook fully operational: charles subscribed for weight + heart rate; Cloudflare Tunnel ingress added for `withings.aldarondo.family`; serve.js handles `POST /` (Withings requires bare-domain callback, no path); subscribe.js uses `WEBHOOK_CALLBACK_URL`
 - [x] 2026-04-25 — `backfill_to_memory` tool: fetches historical Withings data and stores monthly summaries in brian-mem; monthly-hashes.json tracks hash per user/month to enable upserts
 - [x] 2026-04-23 — Updated Dockerfile base image from `node:20-alpine` to `node:22-alpine`

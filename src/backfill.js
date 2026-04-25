@@ -31,7 +31,7 @@ function parseArgs(argv) {
 
 // ── Data fetching ─────────────────────────────────────────────────────────────
 
-async function fetchAllMeasurements(startEpoch, user) {
+export async function fetchAllMeasurements(startEpoch, user) {
   const all = [];
   let offset;
 
@@ -101,77 +101,65 @@ export function buildBodyStats(grps) {
 // ── Formatting ────────────────────────────────────────────────────────────────
 
 export function formatMonthlySummary(monthKey, user, bodyStats, heartStats, measuregrps = [], heartSeries = []) {
-  const f   = (n, d) => (n != null ? n.toFixed(d) : 'N/A');
-  const lbs = (kg)   => (kg * 2.20462).toFixed(1);
-  const lines = [`Withings Monthly Health Summary — ${monthKey} (${user})`, ''];
+  const round = (n, d) => (n != null ? parseFloat(n.toFixed(d)) : null);
 
-  // ── Aggregated stats ──────────────────────────────────────────────────────
+  const buildStatObj = (s, decimals = 2) => s ? {
+    count: s.count,
+    avg:   round(s.avg, decimals),
+    min:   round(s.min, decimals),
+    max:   round(s.max, decimals),
+  } : null;
 
-  const ws = bodyStats[MEAS_TYPE.WEIGHT];
-  if (ws) {
-    lines.push(`Body composition (${ws.count} readings):`);
-    lines.push(`  Weight:      avg ${f(ws.avg, 2)} kg (${lbs(ws.avg)} lbs), min ${f(ws.min, 2)}, max ${f(ws.max, 2)}`);
+  const body = {
+    weight_kg:    buildStatObj(bodyStats[MEAS_TYPE.WEIGHT]),
+    fat_pct:      buildStatObj(bodyStats[MEAS_TYPE.FAT_RATIO], 1),
+    muscle_kg:    buildStatObj(bodyStats[MEAS_TYPE.MUSCLE_MASS]),
+    bone_kg:      buildStatObj(bodyStats[MEAS_TYPE.BONE_MASS]),
+    hydration_kg: buildStatObj(bodyStats[MEAS_TYPE.HYDRATION]),
+  };
 
-    const fat = bodyStats[MEAS_TYPE.FAT_RATIO];
-    if (fat) lines.push(`  Fat ratio:   avg ${f(fat.avg, 1)}%, min ${f(fat.min, 1)}, max ${f(fat.max, 1)}`);
-
-    const mu = bodyStats[MEAS_TYPE.MUSCLE_MASS];
-    if (mu) lines.push(`  Muscle mass: avg ${f(mu.avg, 2)} kg, min ${f(mu.min, 2)}, max ${f(mu.max, 2)}`);
-
-    const bo = bodyStats[MEAS_TYPE.BONE_MASS];
-    if (bo) lines.push(`  Bone mass:   avg ${f(bo.avg, 2)} kg`);
-
-    const hy = bodyStats[MEAS_TYPE.HYDRATION];
-    if (hy) lines.push(`  Hydration:   avg ${f(hy.avg, 2)} kg`);
-  }
-
-  if (heartStats?.count) {
-    if (ws) lines.push('');
-    lines.push(`Heart rate (${heartStats.count} readings):`);
-    lines.push(`  BPM: avg ${Math.round(heartStats.avg)}, min ${heartStats.min}, max ${heartStats.max}`);
-  }
-
-  // ── Individual body readings ──────────────────────────────────────────────
-
-  if (measuregrps.length) {
-    lines.push('', '--- Daily readings ---');
-    const sorted = [...measuregrps].sort((a, b) => a.date - b.date);
-    for (const grp of sorted) {
+  const readings = [...measuregrps]
+    .sort((a, b) => a.date - b.date)
+    .map((grp) => {
       const date = new Date(grp.date * 1000).toISOString().slice(0, 10);
-      const parts = [];
+      const w    = extractMetric(grp, MEAS_TYPE.WEIGHT);
+      const fat  = extractMetric(grp, MEAS_TYPE.FAT_RATIO);
+      const mu   = extractMetric(grp, MEAS_TYPE.MUSCLE_MASS);
+      const bo   = extractMetric(grp, MEAS_TYPE.BONE_MASS);
+      const hy   = extractMetric(grp, MEAS_TYPE.HYDRATION);
+      return {
+        date,
+        weight_kg:    w   != null ? round(w, 2)   : null,
+        fat_pct:      fat != null ? round(fat, 1)  : null,
+        muscle_kg:    mu  != null ? round(mu, 2)   : null,
+        bone_kg:      bo  != null ? round(bo, 2)   : null,
+        hydration_kg: hy  != null ? round(hy, 2)   : null,
+      };
+    })
+    .filter((r) => r.weight_kg != null || r.fat_pct != null);
 
-      const w = extractMetric(grp, MEAS_TYPE.WEIGHT);
-      if (w != null) parts.push(`${w.toFixed(2)} kg`);
+  const heart = {
+    stats: heartStats ? buildStatObj({ ...heartStats, avg: heartStats.avg, min: heartStats.min, max: heartStats.max }, 0) : null,
+    readings: [...heartSeries]
+      .sort((a, b) => a.timestamp - b.timestamp)
+      .filter((s) => s.heart_rate != null)
+      .map((s) => ({
+        timestamp: new Date(s.timestamp * 1000).toISOString().slice(0, 16),
+        bpm: s.heart_rate,
+      })),
+  };
 
-      const fat = extractMetric(grp, MEAS_TYPE.FAT_RATIO);
-      if (fat != null) parts.push(`fat ${fat.toFixed(1)}%`);
+  const payload = {
+    type: 'withings_monthly_summary',
+    month: monthKey,
+    user,
+    generated_at: new Date().toISOString(),
+    body,
+    readings,
+    heart,
+  };
 
-      const mu = extractMetric(grp, MEAS_TYPE.MUSCLE_MASS);
-      if (mu != null) parts.push(`muscle ${mu.toFixed(2)} kg`);
-
-      const bo = extractMetric(grp, MEAS_TYPE.BONE_MASS);
-      if (bo != null) parts.push(`bone ${bo.toFixed(2)} kg`);
-
-      const hy = extractMetric(grp, MEAS_TYPE.HYDRATION);
-      if (hy != null) parts.push(`hydration ${hy.toFixed(2)} kg`);
-
-      if (parts.length) lines.push(`${date}: ${parts.join(' | ')}`);
-    }
-  }
-
-  // ── Individual heart readings ─────────────────────────────────────────────
-
-  if (heartSeries.length) {
-    lines.push('', '--- Heart readings ---');
-    const sorted = [...heartSeries].sort((a, b) => a.timestamp - b.timestamp);
-    for (const s of sorted) {
-      if (s.heart_rate == null) continue;
-      const ts = new Date(s.timestamp * 1000).toISOString().slice(0, 16).replace('T', ' ');
-      lines.push(`${ts}: ${s.heart_rate} bpm`);
-    }
-  }
-
-  return lines.join('\n');
+  return JSON.stringify(payload);
 }
 
 // ── Store one month (delete old + write new) ──────────────────────────────────

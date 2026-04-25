@@ -131,84 +131,90 @@ const sampleHeartSeries = [
 ];
 
 describe('formatMonthlySummary — aggregated stats', () => {
-  test('includes month key and user in header', () => {
-    const text = formatMonthlySummary('2024-01', 'charles', sampleBodyStats, null);
-    expect(text).toContain('2024-01');
-    expect(text).toContain('charles');
+  test('includes month key and user', () => {
+    const parsed = JSON.parse(formatMonthlySummary('2024-01', 'charles', sampleBodyStats, null));
+    expect(parsed.month).toBe('2024-01');
+    expect(parsed.user).toBe('charles');
+    expect(parsed.type).toBe('withings_monthly_summary');
   });
 
-  test('includes weight in kg and lbs', () => {
-    const text = formatMonthlySummary('2024-01', 'charles', sampleBodyStats, null);
-    expect(text).toContain('80.00 kg');
-    expect(text).toContain('176.4 lbs');
+  test('includes weight stats', () => {
+    const parsed = JSON.parse(formatMonthlySummary('2024-01', 'charles', sampleBodyStats, null));
+    expect(parsed.body.weight_kg.avg).toBe(80);
+    expect(parsed.body.weight_kg.min).toBe(79.5);
+    expect(parsed.body.weight_kg.max).toBe(80.5);
+    expect(parsed.body.weight_kg.count).toBe(2);
   });
 
   test('includes fat ratio and muscle mass', () => {
-    const text = formatMonthlySummary('2024-01', 'charles', sampleBodyStats, null);
-    expect(text).toContain('18.5%');
-    expect(text).toContain('65.35 kg');
+    const parsed = JSON.parse(formatMonthlySummary('2024-01', 'charles', sampleBodyStats, null));
+    expect(parsed.body.fat_pct.avg).toBe(18.5);
+    expect(parsed.body.muscle_kg.avg).toBe(65.35);
   });
 
   test('includes heart rate section when provided', () => {
-    const text = formatMonthlySummary('2024-01', 'charles', sampleBodyStats, sampleHeartStats);
-    expect(text).toContain('Heart rate (2 readings)');
-    expect(text).toContain('avg 68');
-    expect(text).toContain('min 60');
-    expect(text).toContain('max 76');
+    const parsed = JSON.parse(formatMonthlySummary('2024-01', 'charles', sampleBodyStats, sampleHeartStats));
+    expect(parsed.heart.stats.count).toBe(2);
+    expect(parsed.heart.stats.avg).toBe(68);
+    expect(parsed.heart.stats.min).toBe(60);
+    expect(parsed.heart.stats.max).toBe(76);
   });
 
-  test('omits heart rate section when null', () => {
-    const text = formatMonthlySummary('2024-01', 'charles', sampleBodyStats, null);
-    expect(text).not.toContain('Heart rate');
+  test('omits heart stats when null', () => {
+    const parsed = JSON.parse(formatMonthlySummary('2024-01', 'charles', sampleBodyStats, null));
+    expect(parsed.heart.stats).toBeNull();
   });
 
   test('includes reading count', () => {
-    const text = formatMonthlySummary('2024-01', 'charles', sampleBodyStats, null);
-    expect(text).toContain('2 readings');
+    const parsed = JSON.parse(formatMonthlySummary('2024-01', 'charles', sampleBodyStats, null));
+    expect(parsed.body.weight_kg.count).toBe(2);
   });
 });
 
 describe('formatMonthlySummary — individual records', () => {
-  test('includes daily readings section', () => {
-    const text = formatMonthlySummary('2024-01', 'charles', sampleBodyStats, null, sampleGrps);
-    expect(text).toContain('Daily readings');
+  test('includes daily readings array', () => {
+    const parsed = JSON.parse(formatMonthlySummary('2024-01', 'charles', sampleBodyStats, null, sampleGrps));
+    expect(parsed.readings).toHaveLength(2);
   });
 
   test('includes each date', () => {
-    const text = formatMonthlySummary('2024-01', 'charles', sampleBodyStats, null, sampleGrps);
-    expect(text).toContain('2024-01-03');
-    expect(text).toContain('2024-01-15');
+    const parsed = JSON.parse(formatMonthlySummary('2024-01', 'charles', sampleBodyStats, null, sampleGrps));
+    const dates = parsed.readings.map((r) => r.date);
+    expect(dates).toContain('2024-01-03');
+    expect(dates).toContain('2024-01-15');
   });
 
   test('includes per-day weight values', () => {
-    const text = formatMonthlySummary('2024-01', 'charles', sampleBodyStats, null, sampleGrps);
-    expect(text).toContain('80.50 kg');
-    expect(text).toContain('79.50 kg');
+    const parsed = JSON.parse(formatMonthlySummary('2024-01', 'charles', sampleBodyStats, null, sampleGrps));
+    const jan3 = parsed.readings.find((r) => r.date === '2024-01-03');
+    const jan15 = parsed.readings.find((r) => r.date === '2024-01-15');
+    expect(jan3.weight_kg).toBe(80.5);
+    expect(jan15.weight_kg).toBe(79.5);
   });
 
   test('includes per-day fat and muscle', () => {
-    const text = formatMonthlySummary('2024-01', 'charles', sampleBodyStats, null, sampleGrps);
-    expect(text).toContain('fat 18.8%');
-    expect(text).toContain('muscle 65.30 kg');
+    const parsed = JSON.parse(formatMonthlySummary('2024-01', 'charles', sampleBodyStats, null, sampleGrps));
+    const jan3 = parsed.readings.find((r) => r.date === '2024-01-03');
+    expect(jan3.fat_pct).toBe(18.8);
+    expect(jan3.muscle_kg).toBe(65.3);
   });
 
-  test('omits daily readings section when no measuregrps', () => {
-    const text = formatMonthlySummary('2024-01', 'charles', sampleBodyStats, null, []);
-    expect(text).not.toContain('Daily readings');
+  test('omits daily readings when no measuregrps', () => {
+    const parsed = JSON.parse(formatMonthlySummary('2024-01', 'charles', sampleBodyStats, null, []));
+    expect(parsed.readings).toHaveLength(0);
   });
 
-  test('includes heart readings section with timestamps', () => {
-    const text = formatMonthlySummary('2024-01', 'charles', sampleBodyStats, sampleHeartStats, [], sampleHeartSeries);
-    expect(text).toContain('Heart readings');
-    expect(text).toContain('60 bpm');
-    expect(text).toContain('76 bpm');
+  test('includes heart readings with timestamps and bpm', () => {
+    const parsed = JSON.parse(formatMonthlySummary('2024-01', 'charles', sampleBodyStats, sampleHeartStats, [], sampleHeartSeries));
+    expect(parsed.heart.readings).toHaveLength(2);
+    expect(parsed.heart.readings[0].bpm).toBe(60);
+    expect(parsed.heart.readings[1].bpm).toBe(76);
   });
 
   test('daily readings are sorted chronologically', () => {
     const reversed = [...sampleGrps].reverse();
-    const text = formatMonthlySummary('2024-01', 'charles', sampleBodyStats, null, reversed);
-    const idx3  = text.indexOf('2024-01-03');
-    const idx15 = text.indexOf('2024-01-15');
-    expect(idx3).toBeLessThan(idx15);
+    const parsed = JSON.parse(formatMonthlySummary('2024-01', 'charles', sampleBodyStats, null, reversed));
+    expect(parsed.readings[0].date).toBe('2024-01-03');
+    expect(parsed.readings[1].date).toBe('2024-01-15');
   });
 });

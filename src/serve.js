@@ -11,9 +11,9 @@ import axios from 'axios';
 import { SSEServerTransport } from '@modelcontextprotocol/sdk/server/sse.js';
 import { createServer } from './server.js';
 import { setTokens, listUsers, getUserByWithingsId } from './tokenStore.js';
-import { getMeasurements, getHeartData } from './api.js';
+import { getHeartData } from './api.js';
 import { storeMemory, deleteMemory } from './memory.js';
-import { buildBodyStats, formatMonthlySummary, stats } from './backfill.js';
+import { buildBodyStats, formatMonthlySummary, stats, fetchAllMeasurements } from './backfill.js';
 import { getMonthHash, setMonthHash } from './monthlyStore.js';
 
 const PORT          = parseInt(process.env.PORT || '8769', 10);
@@ -103,12 +103,10 @@ async function handleWebhook(req, res) {
       const monthStart = Math.floor(new Date(now.getFullYear(), now.getMonth(), 1).getTime() / 1000);
       const monthEnd   = Math.floor(now.getTime() / 1000);
 
-      const [measBody, heartBody] = await Promise.all([
-        getMeasurements({ lastupdate: monthStart }, user),
+      const [grps, heartBody] = await Promise.all([
+        fetchAllMeasurements(monthStart, user),
         getHeartData({ startdate: monthStart, enddate: monthEnd }, user).catch(() => ({ series: [] })),
       ]);
-
-      const grps        = measBody?.measuregrps ?? [];
       const heartSeries = heartBody?.series ?? [];
       const heartBPMs   = heartSeries.map((s) => s.heart_rate).filter((v) => v != null);
       const bodyStats   = buildBodyStats(grps);
