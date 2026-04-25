@@ -22,6 +22,7 @@
 - [x] `[Code]` 2026-04-19 — Trend summary tool — compare current week vs last week for weight + activity
 
 ## ✅ Completed
+- [x] 2026-04-23 — Updated Dockerfile base image from `node:20-alpine` to `node:22-alpine`
 - [x] 2026-04-19 — Scaffolded: MCP server (get_weight, get_sleep, get_activity, get_heart_rate), API client, auth module, unit tests
 - [x] 2026-04-21 — Multi-user token store: tokens.json keyed by user name; all tools accept optional `user` param; browser auth UI at `http://<nas-ip>:<PORT>/`
 - [x] 2026-04-21 — Removed get_sleep and get_activity (not supported by scale or blood pressure monitor); added brian-mem storage to get_heart_rate; simplified trend_summary to weight-only
