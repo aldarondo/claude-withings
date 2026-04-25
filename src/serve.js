@@ -11,8 +11,10 @@ import axios from 'axios';
 import { SSEServerTransport } from '@modelcontextprotocol/sdk/server/sse.js';
 import { createServer } from './server.js';
 import { setTokens, listUsers, getUserByWithingsId } from './tokenStore.js';
-import { getMeasurements, getHeartData, formatMeasurements } from './api.js';
-import { storeMemory } from './memory.js';
+import { getMeasurements, getHeartData } from './api.js';
+import { storeMemory, deleteMemory } from './memory.js';
+import { buildBodyStats, formatMonthlySummary, stats } from './backfill.js';
+import { getMonthHash, setMonthHash } from './monthlyStore.js';
 
 const PORT          = parseInt(process.env.PORT || '8769', 10);
 const CLIENT_ID     = process.env.WITHINGS_CLIENT_ID;
@@ -99,15 +101,33 @@ app.post('/webhook', express.urlencoded({ extended: false }), async (req, res) =
   try {
     const appliNum = parseInt(appli, 10);
 
-    if (appliNum === APPLI_WEIGHT) {
-      const body = await getMeasurements({ lastupdate: parseInt(startdate, 10) }, user);
-      const text = formatMeasurements(body);
-      await storeMemory(`Withings weight (${user}): ${text}`, 'weight');
-      console.error(`[webhook] stored weight for ${user}`);
-    } else if (appliNum === APPLI_HEART_RATE) {
-      const body = await getHeartData({ startdate: parseInt(startdate, 10), enddate: parseInt(enddate, 10) }, user);
-      await storeMemory(`Withings heart rate (${user}): ${JSON.stringify(body)}`, 'heart_rate');
-      console.error(`[webhook] stored heart rate for ${user}`);
+    if (appliNum === APPLI_WEIGHT || appliNum === APPLI_HEART_RATE) {
+      // Rebuild the full current-month summary so it stays current and complete
+      const now        = new Date();
+      const monthKey   = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+      const monthStart = Math.floor(new Date(now.getFullYear(), now.getMonth(), 1).getTime() / 1000);
+      const monthEnd   = Math.floor(now.getTime() / 1000);
+
+      const [measBody, heartBody] = await Promise.all([
+        getMeasurements({ lastupdate: monthStart }, user),
+        getHeartData({ startdate: monthStart, enddate: monthEnd }, user).catch(() => ({ series: [] })),
+      ]);
+
+      const grps        = measBody?.measuregrps ?? [];
+      const heartSeries = heartBody?.series ?? [];
+      const heartBPMs   = heartSeries.map((s) => s.heart_rate).filter((v) => v != null);
+      const bodyStats   = buildBodyStats(grps);
+      const heartStats  = stats(heartBPMs);
+
+      if (Object.keys(bodyStats).length || heartStats) {
+        const summary  = formatMonthlySummary(monthKey, user, bodyStats, heartStats, grps, heartSeries);
+        const tags     = `monthly-summary,${user},${monthKey}`;
+        const oldHash  = getMonthHash(user, monthKey);
+        if (oldHash) await deleteMemory(oldHash);
+        const newHash = await storeMemory(summary, tags);
+        if (newHash) setMonthHash(user, monthKey, newHash);
+        console.error(`[webhook] updated monthly summary for ${user} ${monthKey} (appli=${appliNum})`);
+      }
     } else {
       console.error(`[webhook] unhandled appli=${appli}, ignoring`);
     }

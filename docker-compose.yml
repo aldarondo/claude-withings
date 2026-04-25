@@ -6,6 +6,7 @@ services:
     volumes:
       - ./.env:/app/.env:ro
       - ./tokens.json:/app/tokens.json
+      - ./monthly-hashes.json:/app/monthly-hashes.json
     environment:
       - WITHINGS_CLIENT_ID=${WITHINGS_CLIENT_ID}
       - WITHINGS_CLIENT_SECRET=${WITHINGS_CLIENT_SECRET}
