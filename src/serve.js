@@ -115,7 +115,8 @@ async function handleWebhook(req, res) {
         }
       };
 
-      const grps      = await fetchWithRetry();
+      const monthEnd  = Math.floor(now.getTime() / 1000);
+      const grps      = (await fetchWithRetry()).filter(g => g.date >= monthStart && g.date <= monthEnd);
       const bodyStats = buildBodyStats(grps);
 
       if (Object.keys(bodyStats).length) {
