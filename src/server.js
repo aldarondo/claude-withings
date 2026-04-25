@@ -12,7 +12,7 @@ import {
 } from '@modelcontextprotocol/sdk/types.js';
 import {
   getMeasurements,
-  getHeartData,
+  MEAS_TYPE,
   formatMeasurements,
   formatTrendSummary,
 } from './api.js';
@@ -106,8 +106,8 @@ export function createServer() {
 
         case 'get_heart_rate': {
           const sinceDays = args?.since_days ?? 7;
-          const startdate = Math.floor((Date.now() - sinceDays * 86400_000) / 1000);
-          const body = await getHeartData({ startdate }, user);
+          const lastupdate = Math.floor((Date.now() - sinceDays * 86400_000) / 1000);
+          const body = await getMeasurements({ lastupdate, meastype: [MEAS_TYPE.HEART_RATE] }, user);
           const text = JSON.stringify(body, null, 2);
           storeMemory(`Withings heart rate (${user}, last ${sinceDays}d): ${text}`, 'heart_rate').catch(() => {});
           return { content: [{ type: 'text', text }] };

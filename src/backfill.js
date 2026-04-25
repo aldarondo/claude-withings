@@ -9,7 +9,7 @@
  */
 
 import { fileURLToPath } from 'url';
-import { getMeasurements, getHeartData, MEAS_TYPE } from './api.js';
+import { getMeasurements, MEAS_TYPE } from './api.js';
 import { storeMemory, deleteMemory } from './memory.js';
 import { getMonthHash, setMonthHash } from './monthlyStore.js';
 
@@ -47,16 +47,6 @@ export async function fetchAllMeasurements(startEpoch, user) {
   }
 
   return all;
-}
-
-async function fetchMonthHeartData(startEpoch, endEpoch, user) {
-  try {
-    const body = await getHeartData({ startdate: startEpoch, enddate: endEpoch }, user);
-    return body?.series ?? [];
-  } catch (err) {
-    console.error(`[backfill] heart data fetch failed (${new Date(startEpoch * 1000).toISOString().slice(0, 7)}): ${err.message}`);
-    return [];
-  }
 }
 
 // ── Aggregation ───────────────────────────────────────────────────────────────
@@ -101,7 +91,7 @@ export function buildBodyStats(grps) {
 
 // ── Formatting ────────────────────────────────────────────────────────────────
 
-export function formatMonthlySummary(monthKey, user, bodyStats, heartStats, measuregrps = [], heartSeries = []) {
+export function formatMonthlySummary(monthKey, user, bodyStats, measuregrps = []) {
   const round = (n, d) => (n != null ? parseFloat(n.toFixed(d)) : null);
 
   const buildStatObj = (s, decimals = 2) => s ? {
@@ -139,15 +129,21 @@ export function formatMonthlySummary(monthKey, user, bodyStats, heartStats, meas
     })
     .filter((r) => r.weight_kg != null || r.fat_pct != null);
 
+  const heartReadings = [...measuregrps]
+    .sort((a, b) => a.date - b.date)
+    .map((grp) => {
+      const bpm = extractMetric(grp, MEAS_TYPE.HEART_RATE);
+      if (bpm == null) return null;
+      return {
+        timestamp: new Date(grp.date * 1000).toISOString().slice(0, 16),
+        bpm: Math.round(bpm),
+      };
+    })
+    .filter(Boolean);
+
   const heart = {
-    stats: heartStats ? buildStatObj({ ...heartStats, avg: heartStats.avg, min: heartStats.min, max: heartStats.max }, 0) : null,
-    readings: [...heartSeries]
-      .sort((a, b) => a.timestamp - b.timestamp)
-      .filter((s) => s.heart_rate != null)
-      .map((s) => ({
-        timestamp: new Date(s.timestamp * 1000).toISOString().slice(0, 16),
-        bpm: s.heart_rate,
-      })),
+    stats:    buildStatObj(bodyStats[MEAS_TYPE.HEART_RATE], 0),
+    readings: heartReadings,
   };
 
   const payload = {
@@ -212,30 +208,26 @@ export async function runBackfill({ user, years = DEFAULT_YEARS, dryRun = false 
     const monthStart = Math.floor(new Date(yr, mo - 1, 1).getTime() / 1000);
     const monthEnd   = Math.floor(new Date(yr, mo,     1).getTime() / 1000) - 1;
 
-    const grps        = measByMonth[monthKey] ?? [];
-    const bodyStats   = buildBodyStats(grps);
-    const heartSeries = await fetchMonthHeartData(monthStart, monthEnd, resolvedUser);
-    await sleep(300);
+    const grps      = measByMonth[monthKey] ?? [];
+    const bodyStats = buildBodyStats(grps);
 
-    const heartBPMs  = heartSeries.map((s) => s.heart_rate).filter((v) => v != null);
-    const heartStats = stats(heartBPMs);
-
-    if (!Object.keys(bodyStats).length && !heartStats) {
+    if (!Object.keys(bodyStats).length) {
       skipped++;
       continue;
     }
 
-    const summary = formatMonthlySummary(monthKey, resolvedUser, bodyStats, heartStats, grps, heartSeries);
+    const summary    = formatMonthlySummary(monthKey, resolvedUser, bodyStats, grps);
+    const heartCount = bodyStats[MEAS_TYPE.HEART_RATE]?.count ?? 0;
 
     if (dryRun) {
-      console.log(`  [DRY RUN] ${monthKey}: ${grps.length} body, ${heartBPMs.length} HR`);
+      console.log(`  [DRY RUN] ${monthKey}: ${grps.length} body, ${heartCount} HR`);
     } else {
       await storeMonthSummary(monthKey, resolvedUser, summary, false);
       stored++;
-      console.log(`  ✅ ${monthKey}: ${grps.length} body, ${heartBPMs.length} HR → stored`);
+      console.log(`  ✅ ${monthKey}: ${grps.length} body, ${heartCount} HR → stored`);
     }
 
-    results.push({ month: monthKey, bodyCount: grps.length, heartCount: heartBPMs.length });
+    results.push({ month: monthKey, bodyCount: grps.length, heartCount });
   }
 
   const summary = dryRun

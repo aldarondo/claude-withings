@@ -11,9 +11,8 @@ import axios from 'axios';
 import { SSEServerTransport } from '@modelcontextprotocol/sdk/server/sse.js';
 import { createServer } from './server.js';
 import { setTokens, listUsers, getUserByWithingsId } from './tokenStore.js';
-import { getHeartData } from './api.js';
 import { storeMemory, deleteMemory } from './memory.js';
-import { buildBodyStats, formatMonthlySummary, stats, fetchAllMeasurements } from './backfill.js';
+import { buildBodyStats, formatMonthlySummary, fetchAllMeasurements } from './backfill.js';
 import { getMonthHash, setMonthHash } from './monthlyStore.js';
 
 const PORT          = parseInt(process.env.PORT || '8769', 10);
@@ -101,36 +100,25 @@ async function handleWebhook(req, res) {
       const now        = new Date();
       const monthKey   = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
       const monthStart = Math.floor(new Date(now.getFullYear(), now.getMonth(), 1).getTime() / 1000);
-      const monthEnd   = Math.floor(now.getTime() / 1000);
 
-      const fetchHeart = async () => {
-        await new Promise((r) => setTimeout(r, 60_000));
+      const fetchWithRetry = async () => {
         try {
-          return await getHeartData({ startdate: monthStart, enddate: monthEnd }, user);
+          return await fetchAllMeasurements(monthStart, user);
         } catch (err) {
           if (err.message?.includes('601')) {
-            console.error(`[webhook] heart rate 601, retrying in 60s`);
-            await new Promise((r) => setTimeout(r, 60_000));
-            return await getHeartData({ startdate: monthStart, enddate: monthEnd }, user);
+            console.error(`[webhook] 601 rate limit, retrying in 30s`);
+            await new Promise((r) => setTimeout(r, 30_000));
+            return await fetchAllMeasurements(monthStart, user);
           }
           throw err;
         }
       };
 
-      const [grps, heartBody] = await Promise.all([
-        fetchAllMeasurements(monthStart, user),
-        fetchHeart().catch((err) => {
-          console.error(`[webhook] heart data fetch failed: ${err.message}`);
-          return { series: [] };
-        }),
-      ]);
-      const heartSeries = heartBody?.series ?? [];
-      const heartBPMs   = heartSeries.map((s) => s.heart_rate).filter((v) => v != null);
-      const bodyStats   = buildBodyStats(grps);
-      const heartStats  = stats(heartBPMs);
+      const grps      = await fetchWithRetry();
+      const bodyStats = buildBodyStats(grps);
 
-      if (Object.keys(bodyStats).length || heartStats) {
-        const summary  = formatMonthlySummary(monthKey, user, bodyStats, heartStats, grps, heartSeries);
+      if (Object.keys(bodyStats).length) {
+        const summary  = formatMonthlySummary(monthKey, user, bodyStats, grps);
         const tags     = `monthly-summary,${user},${monthKey}`;
         const oldHash  = getMonthHash(user, monthKey);
         if (oldHash) await deleteMemory(oldHash);

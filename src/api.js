@@ -32,9 +32,10 @@ export const MEAS_TYPE = {
   FAT_FREE_MASS:     5,   // kg
   FAT_RATIO:         6,   // %
   FAT_MASS:          8,   // kg
+  HEART_RATE:        11,  // bpm
   MUSCLE_MASS:       76,  // kg
-  BONE_MASS:         88,  // kg
   HYDRATION:         77,  // kg
+  BONE_MASS:         88,  // kg
   PULSE_WAVE_VELOCITY: 91, // m/s
 };
 
