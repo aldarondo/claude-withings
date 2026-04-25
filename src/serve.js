@@ -6,6 +6,7 @@
  *   /webhook   — Withings push notification receiver
  */
 
+import './logger.js';
 import express from 'express';
 import axios from 'axios';
 import { SSEServerTransport } from '@modelcontextprotocol/sdk/server/sse.js';

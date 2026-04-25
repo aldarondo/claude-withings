@@ -8,7 +8,6 @@ services:
       - ./tokens.json:/app/tokens.json
       - ./monthly-hashes.json:/app/monthly-hashes.json
       - ./logs:/app/logs
-    command: sh -c "node src/serve.js 2>&1 | tee -a /app/logs/app.log"
     environment:
       - WITHINGS_CLIENT_ID=${WITHINGS_CLIENT_ID}
       - WITHINGS_CLIENT_SECRET=${WITHINGS_CLIENT_SECRET}
