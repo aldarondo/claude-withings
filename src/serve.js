@@ -20,7 +20,8 @@ const PORT          = parseInt(process.env.PORT || '8769', 10);
 const CLIENT_ID     = process.env.WITHINGS_CLIENT_ID;
 const CLIENT_SECRET = process.env.WITHINGS_CLIENT_SECRET;
 const HOST          = process.env.SERVER_HOST || 'localhost';
-const REDIRECT_URI  = `http://${HOST}:${PORT}/auth/callback`;
+const PUBLIC_BASE   = process.env.WEBHOOK_CALLBACK_URL || `http://${HOST}:${PORT}`;
+const REDIRECT_URI  = `${PUBLIC_BASE}/auth/callback`;
 
 // Webhook security
 const WEBHOOK_SECRET = process.env.WEBHOOK_SECRET || '';
