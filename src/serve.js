@@ -105,7 +105,10 @@ async function handleWebhook(req, res) {
 
       const [grps, heartBody] = await Promise.all([
         fetchAllMeasurements(monthStart, user),
-        getHeartData({ startdate: monthStart, enddate: monthEnd }, user).catch(() => ({ series: [] })),
+        getHeartData({ startdate: monthStart, enddate: monthEnd }, user).catch((err) => {
+          console.error(`[webhook] heart data fetch failed: ${err.message}`);
+          return { series: [] };
+        }),
       ]);
       const heartSeries = heartBody?.series ?? [];
       const heartBPMs   = heartSeries.map((s) => s.heart_rate).filter((v) => v != null);

@@ -53,7 +53,8 @@ async function fetchMonthHeartData(startEpoch, endEpoch, user) {
   try {
     const body = await getHeartData({ startdate: startEpoch, enddate: endEpoch }, user);
     return body?.series ?? [];
-  } catch {
+  } catch (err) {
+    console.error(`[backfill] heart data fetch failed (${new Date(startEpoch * 1000).toISOString().slice(0, 7)}): ${err.message}`);
     return [];
   }
 }
