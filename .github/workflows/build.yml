@@ -53,6 +53,6 @@ jobs:
           sshpass -e ssh -o StrictHostKeyChecking=no \
             -o "ProxyCommand=cloudflared access ssh --hostname nas-ssh.aldarondo.family --id $CF_CLIENT_ID --secret $CF_CLIENT_SECRET" \
             charles@nas-ssh.aldarondo.family \
-            "echo \"$NAS_PASS\" | sudo -S /usr/local/bin/docker compose -f /volume1/docker/claude-withings/docker-compose.yml pull \
-             && echo \"$NAS_PASS\" | sudo -S /usr/local/bin/docker rm -f claude-withings 2>/dev/null || true \
-             && echo \"$NAS_PASS\" | sudo -S /usr/local/bin/docker compose -f /volume1/docker/claude-withings/docker-compose.yml up -d"
+            "echo \"$NAS_PASS\" | sudo -S /usr/local/bin/docker compose -f /volume1/docker/claude-withings/docker-compose.yml --profile tunnel pull \
+             && echo \"$NAS_PASS\" | sudo -S /usr/local/bin/docker rm -f claude-withings claude-withings-tunnel 2>/dev/null || true \
+             && echo \"$NAS_PASS\" | sudo -S /usr/local/bin/docker compose -f /volume1/docker/claude-withings/docker-compose.yml --profile tunnel up -d"
