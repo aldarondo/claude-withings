@@ -8,6 +8,7 @@ on:
       - src/**
       - package*.json
       - docker-compose.yml
+      - .github/workflows/build.yml
   schedule:
     - cron: "0 8 * * 0"
   workflow_dispatch:
@@ -51,9 +52,10 @@ jobs:
           CF_CLIENT_ID: ${{ secrets.CF_ACCESS_CLIENT_ID }}
           CF_CLIENT_SECRET: ${{ secrets.CF_ACCESS_CLIENT_SECRET }}
         run: |
-          sshpass -e scp -o StrictHostKeyChecking=no \
+          sshpass -e ssh -o StrictHostKeyChecking=no \
             -o "ProxyCommand=cloudflared access ssh --hostname nas-ssh.aldarondo.family --id $CF_CLIENT_ID --secret $CF_CLIENT_SECRET" \
-            docker-compose.yml charles@nas-ssh.aldarondo.family:/tmp/claude-withings-compose.yml
+            charles@nas-ssh.aldarondo.family \
+            "cat > /tmp/claude-withings-compose.yml" < docker-compose.yml
           sshpass -e ssh -o StrictHostKeyChecking=no \
             -o "ProxyCommand=cloudflared access ssh --hostname nas-ssh.aldarondo.family --id $CF_CLIENT_ID --secret $CF_CLIENT_SECRET" \
             charles@nas-ssh.aldarondo.family \
