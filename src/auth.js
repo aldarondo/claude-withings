@@ -46,7 +46,7 @@ export async function refreshAccessToken(user, refreshToken) {
     throw new Error(`Withings token refresh failed for "${user}": status ${data.status} — ${data.error || 'unknown'}`);
   }
 
-  const { access_token, refresh_token, expires_in } = data.body;
-  setTokens(user, { access_token, refresh_token, expires_at: Date.now() + expires_in * 1000 });
+  const { access_token, refresh_token, expires_in, userid } = data.body;
+  setTokens(user, { access_token, refresh_token, expires_at: Date.now() + expires_in * 1000, withings_user_id: userid });
   return access_token;
 }

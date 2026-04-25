@@ -10,7 +10,8 @@ import express from 'express';
 import axios from 'axios';
 import { SSEServerTransport } from '@modelcontextprotocol/sdk/server/sse.js';
 import { createServer } from './server.js';
-import { setTokens, listUsers, getUserByWithingsId } from './tokenStore.js';
+import { getTokens, setTokens, listUsers, getUserByWithingsId } from './tokenStore.js';
+import { refreshAccessToken } from './auth.js';
 import { storeMemory, deleteMemory } from './memory.js';
 import { buildBodyStats, formatMonthlySummary, fetchAllMeasurements } from './backfill.js';
 import { getMonthHash, setMonthHash } from './monthlyStore.js';
@@ -233,4 +234,18 @@ app.get('/auth/callback', async (req, res) => {
 
 // ── Start ─────────────────────────────────────────────────────────────────────
 
-app.listen(PORT, () => console.error(`[MCP SSE] claude-withings listening on port ${PORT}`));
+app.listen(PORT, async () => {
+  console.error(`[MCP SSE] claude-withings listening on port ${PORT}`);
+  // Heal any users missing withings_user_id by forcing a token refresh (refresh response includes userid)
+  for (const user of listUsers()) {
+    const tokens = getTokens(user);
+    if (!tokens?.withings_user_id) {
+      try {
+        await refreshAccessToken(user, tokens.refresh_token);
+        console.error(`[startup] healed withings_user_id for "${user}"`);
+      } catch (err) {
+        console.error(`[startup] could not heal withings_user_id for "${user}": ${err.message}`);
+      }
+    }
+  }
+});
