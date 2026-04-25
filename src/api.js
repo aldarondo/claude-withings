@@ -45,9 +45,10 @@ export const MEAS_TYPE = {
  * @param {number[]} [opts.meastype] - array of MEAS_TYPE values (default: all weight/composition)
  * @returns {Promise<Object>}
  */
-export async function getMeasurements({ lastupdate, meastype } = {}, user) {
+export async function getMeasurements({ lastupdate, meastype, offset } = {}, user) {
   const params = { action: 'getmeas', meastypes: meastype?.join(',') };
   if (lastupdate) params.lastupdate = lastupdate;
+  if (offset !== undefined) params.offset = offset;
   return get('/measure', params, user);
 }
 

@@ -18,6 +18,7 @@ import {
 } from './api.js';
 import { storeMemory } from './memory.js';
 import { DEFAULT_USER } from './auth.js';
+import { runBackfill } from './backfill.js';
 
 const USER_PROP = {
   user: {
@@ -67,6 +68,25 @@ export function createServer() {
           required: [],
         },
       },
+      {
+        name: 'backfill_to_memory',
+        description: 'Fetch historical Withings data and store monthly summaries to brian-mcp memory. Each month becomes one memory entry with body composition and heart rate stats.',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            years: {
+              type: 'number',
+              description: 'How many years of history to backfill (default: 5)',
+            },
+            dry_run: {
+              type: 'boolean',
+              description: 'If true, fetch and format data but do not write to memory (default: false)',
+            },
+            ...USER_PROP,
+          },
+          required: [],
+        },
+      },
     ],
   }));
 
@@ -103,6 +123,16 @@ export function createServer() {
           ]);
           const text = formatTrendSummary(thisWeekMeas, lastWeekMeas);
           return { content: [{ type: 'text', text }] };
+        }
+
+        case 'backfill_to_memory': {
+          const years  = args?.years ?? 5;
+          const dryRun = args?.dry_run ?? false;
+          const { summary, results } = await runBackfill({ user, years, dryRun });
+          const detail = results.map(
+            (r) => `  ${r.month}: ${r.bodyCount} body, ${r.heartCount} HR`
+          ).join('\n');
+          return { content: [{ type: 'text', text: `${summary}\n\n${detail}` }] };
         }
 
         default:

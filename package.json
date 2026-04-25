@@ -7,11 +7,13 @@
   "scripts": {
     "start": "node src/index.js",
     "serve": "node src/serve.js",
+    "backfill": "node src/backfill.js",
     "test": "node --experimental-vm-modules node_modules/jest/bin/jest.js tests/"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.29.0",
     "axios": "^1.15.0",
+    "dotenv": "^16.5.0",
     "express": "^4.21.0"
   },
   "devDependencies": {
