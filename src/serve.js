@@ -1,6 +1,6 @@
 /**
  * claude-withings MCP Server — HTTP/SSE entry point.
- * Listens on PORT (default 8769) for SSE connections from brian-telegram.
+ * Listens on PORT (default 8769) for SSE connections from MCP clients.
  * Also serves:
  *   /          — family member authorization UI
  *   /webhook   — Withings push notification receiver
@@ -64,22 +64,17 @@ app.post('/messages', express.json(), async (req, res) => {
 });
 
 // ── Withings webhook ──────────────────────────────────────────────────────────
+// Withings requires the callback URL to exactly match the registered app URL (no path allowed),
+// so notifications arrive at POST /. The /webhook path is kept as an alias for compatibility.
 
-app.post('/webhook', express.urlencoded({ extended: false }), async (req, res) => {
-  // 1. Secret token check (token embedded in callback URL at subscribe time)
-  if (WEBHOOK_SECRET && req.query.token !== WEBHOOK_SECRET) {
-    console.error('[webhook] rejected: invalid token');
-    return res.status(401).end();
-  }
-
-  // 2. IP allowlist check (real client IP from CF-Connecting-IP behind Cloudflare Tunnel)
+async function handleWebhook(req, res) {
+  // IP allowlist check (real client IP from CF-Connecting-IP behind Cloudflare Tunnel)
   const clientIp = req.headers['cf-connecting-ip'] || req.ip;
   if (WEBHOOK_ALLOWED_IPS.length > 0 && !WEBHOOK_ALLOWED_IPS.includes(clientIp)) {
     console.error(`[webhook] rejected: IP not allowed — ${clientIp}`);
     return res.status(403).end();
   }
 
-  // 3. Rate limit
   if (isRateLimited(clientIp)) {
     console.error(`[webhook] rate limited: ${clientIp}`);
     return res.status(429).end();
@@ -134,7 +129,11 @@ app.post('/webhook', express.urlencoded({ extended: false }), async (req, res) =
   } catch (err) {
     console.error(`[webhook] error processing notification: ${err.message}`);
   }
-});
+}
+
+const webhookMiddleware = express.urlencoded({ extended: false });
+app.post('/', webhookMiddleware, handleWebhook);
+app.post('/webhook', webhookMiddleware, handleWebhook);
 
 // ── Auth web UI ───────────────────────────────────────────────────────────────
 

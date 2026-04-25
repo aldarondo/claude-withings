@@ -21,14 +21,14 @@ const arg = (flag) => {
 const USER   = arg('--user') || 'charles';
 const ACTION = arg('--action') || 'list';
 
-const HOST   = process.env.SERVER_HOST;
-const PORT   = process.env.PORT || '8769';
-const SECRET = process.env.WEBHOOK_SECRET;
+// WEBHOOK_CALLBACK_URL must be the bare public URL registered in the Withings developer portal.
+// Withings requires an exact match — no path or query string allowed.
+// e.g. https://withings.aldarondo.family
+const WEBHOOK_CALLBACK_URL = process.env.WEBHOOK_CALLBACK_URL;
 
-if (!HOST) { console.error('SERVER_HOST must be set in .env'); process.exit(1); }
-if (!SECRET) { console.error('WEBHOOK_SECRET must be set in .env'); process.exit(1); }
+if (!WEBHOOK_CALLBACK_URL) { console.error('WEBHOOK_CALLBACK_URL must be set in .env (e.g. https://withings.aldarondo.family)'); process.exit(1); }
 
-const CALLBACK_BASE = `http://${HOST}:${PORT}/webhook?token=${SECRET}`;
+const CALLBACK_BASE = WEBHOOK_CALLBACK_URL;
 
 // appli types to subscribe: 1=weight, 4=heart rate
 const APPLI_TYPES = [1, 4];
