@@ -7,7 +7,7 @@ services:
       - ./.env:/app/.env:ro
       - ./tokens.json:/app/tokens.json
       - ./monthly-hashes.json:/app/monthly-hashes.json
-      - ./logs:/app/logs
+      - /volume1/docker/claude-withings/logs:/app/logs
     environment:
       - WITHINGS_CLIENT_ID=${WITHINGS_CLIENT_ID}
       - WITHINGS_CLIENT_SECRET=${WITHINGS_CLIENT_SECRET}
