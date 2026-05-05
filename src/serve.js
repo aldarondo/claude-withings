@@ -142,6 +142,12 @@ const webhookMiddleware = express.urlencoded({ extended: false });
 app.post('/', webhookMiddleware, handleWebhook);
 app.post('/webhook', webhookMiddleware, handleWebhook);
 
+// ── Health check ─────────────────────────────────────────────────────────────
+
+app.get('/healthz', (req, res) => {
+  res.json({ status: 'ok', users: listUsers().length });
+});
+
 // ── Auth web UI ───────────────────────────────────────────────────────────────
 
 app.get('/', (req, res) => {
