@@ -30,14 +30,12 @@ services:
     image: cloudflare/cloudflared:latest
     container_name: claude-withings-tunnel
     restart: unless-stopped
-    command: tunnel --no-autoupdate run
+    command: tunnel --no-autoupdate --protocol http2 run
     environment:
       TUNNEL_TOKEN: ${WEBHOOK_TUNNEL_TOKEN:-}
     network_mode: host
     depends_on:
       - claude-withings
-    profiles:
-      - tunnel
     logging:
       driver: "json-file"
       options:
