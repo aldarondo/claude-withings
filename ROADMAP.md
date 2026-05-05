@@ -7,9 +7,11 @@
 ## 🔲 Backlog
 
 - [ ] `[Human]` Authorize additional family members — open `http://<nas-ip>:8769/` and run `subscribe.js --action subscribe` for each
+- [ ] `[Human]` Re-verify Withings webhook subscription is active — if Withings deleted it during 8+ day outage, run `node src/subscribe.js --action subscribe` to re-register
 
 ## ✅ Completed
 
+- [x] 2026-05-05 — Endpoint outage resolved: `cloudflared` tunnel was gated behind `profiles: tunnel` (never started); fixed by removing profiles gate and adding `--protocol http2` (NAS VPN blocks UDP/QUIC); added `/healthz` endpoint; `claude-withings-tunnel` now starts automatically with `docker compose up -d`; confirmed `https://withings.aldarondo.family/healthz` → `{"status":"ok","users":1}`
 - [x] 2026-04-25 — Full historical backfill complete: 78 months stored in brian-mem (Aug 2019 – Apr 2026) with unique per-month content prefix to prevent false-conflict embeddings at scale
 - [x] 2026-04-25 — Heart rate data (BPM Connect type 11) included in all monthly summaries; webhook handler filters measurements to current month to prevent cross-month bleed
 - [x] 2026-04-25 — `withings_user_id` now captured from every token refresh response; serve.js heals missing IDs at startup so webhook routing is always functional
